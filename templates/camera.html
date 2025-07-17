@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tail Rope Fault Detection - Camera</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.1/dist/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            color: #4b0082;
+            text-align: center;
+            font-weight: bold;
+        }
+        #cameraFeed {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            display: none; /* Initially hidden */
+            margin: 20px auto; /* Center the feed */
+        }
+        .btn-custom {
+            background-color: #4b0082;
+            color: white;
+            border-radius: 8px;
+            transition: background-color 0.3s, transform 0.3s;
+            margin: 5px; /* Space between buttons */
+        }
+        .btn-custom:hover {
+            background-color: #6a0dad;
+            transform: scale(1.05);
+        }
+        .status-message {
+            margin-top: 15px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .status-normal {
+            color: green;
+        }
+        .status-fault {
+            color: red;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container mt-5">
+    <h1>Webcam Video Feed - Tail Rope Fault Detection</h1>
+    
+    <div class="text-center">
+        <img id="cameraFeed" src="" width="640" height="480" alt="Camera Feed"> <!-- Initially empty source -->
+        <div id="statusMessage" class="status-message status-normal">Camera is off</div>
+    </div>
+    
+    <div class="text-center mt-4">
+        <button id="startButton" class="btn btn-custom" onclick="startCamera()">Start Camera</button>
+        <button id="stopButton" class="btn btn-custom" onclick="stopCamera()" disabled>Stop Camera</button>
+    </div>
+    
+    <div class="text-center mt-4">
+        <a href="{{ url_for('back') }}" class="btn btn-custom">Back</a>
+    </div>
+</div>
+
+<script>
+    let alarmTriggered = false;
+    let cameraRunning = false;
+    let videoElement = document.getElementById('cameraFeed');
+    let statusMessage = document.getElementById('statusMessage');
+    
+    function startCamera() {
+        if (cameraRunning) return;
+        
+        cameraRunning = true;
+        alarmTriggered = false;
+        
+        // Set the source after the start button is clicked
+        videoElement.src = "{{ url_for('video_feed') }}";
+        videoElement.style.display = 'block';
+        statusMessage.textContent = "Camera is on - Monitoring for faults";
+        statusMessage.className = "status-message status-normal";
+        
+        document.getElementById('startButton').disabled = true;
+        document.getElementById('stopButton').disabled = false;
+        
+        // Set up event listener for when the image loads
+        videoElement.onload = function() {
+            console.log("Video feed started");
+        };
+        
+        // Set up error handling
+        videoElement.onerror = function() {
+            console.error("Error loading video feed");
+            stopCamera();
+        };
+        
+        // Check for faults in the video stream
+        checkForFault();
+    }
+    
+    function checkForFault() {
+        if (!cameraRunning) return;
+        
+        // This is a placeholder. The actual fault detection happens server-side
+        // This function is mainly to update the UI if needed
+        setTimeout(checkForFault, 1000);
+    }
+    
+    function stopCamera() {
+        cameraRunning = false;
+        
+        // Clear the video source to stop the stream
+        videoElement.src = "";
+        videoElement.style.display = 'none';
+        statusMessage.textContent = "Camera is off";
+        statusMessage.className = "status-message status-normal";
+        
+        document.getElementById('startButton').disabled = false;
+        document.getElementById('stopButton').disabled = true;
+        
+        // Additional step to ensure the connection is aborted
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', '/stop_camera', true);
+        xhr.send();
+    }
+    
+    // Listen for messages about fault detection from the server
+    // This assumes you'll enhance your server to send such messages
+    window.addEventListener('message', function(event) {
+        if (event.data && event.data.faultDetected) {
+            alarmTriggered = true;
+            statusMessage.textContent = "⚠️ FAULT DETECTED! ⚠️";
+            statusMessage.className = "status-message status-fault";
+            
+            // Optionally play an alarm sound
+            try {
+                let audio = new Audio("/static/alarm.mp3");
+                audio.play();
+            } catch (e) {
+                console.error("Could not play alarm sound:", e);
+            }
+        }
+    });
+</script>
+
+</body>
+</html>
